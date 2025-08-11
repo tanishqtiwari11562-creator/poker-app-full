@@ -1,1 +1,30 @@
-const socket = io();let roomId=null;let mySeat=null;function $(id){return document.getElementById(id);}function showLobby(){ $('lobby').classList.remove('hidden'); $('table').classList.add('hidden'); }function showTable(){ $('lobby').classList.add('hidden'); $('table').classList.remove('hidden'); }function renderSeating(pub){ const seating=$('seating'); seating.innerHTML=''; for(let i=0;i<9;i++){ const s=pub.seats&&pub.seats[i]; const div=document.createElement('div'); div.className='seat-card'; if(s){ div.innerHTML=`<div>${s.name}</div><div class="muted">Chips: ₹${s.chips}</div>`; } else { div.innerHTML=`<button data-seat="${i}" class="sitBtn">Sit Here</button>`; } seating.appendChild(div); } document.querySelectorAll('.sitBtn').forEach(b=>{ b.onclick=()=>{ const seat=parseInt(b.dataset.seat); const name=$('name').value||'Player'; socket.emit('sit',{roomId,seatIndex:seat,name}); }; }); }function renderSeatsGrid(pub){ const seats=$('seats'); seats.innerHTML=''; for(let i=0;i<9;i++){ const s=pub.seats&&pub.seats[i]; const div=document.createElement('div'); div.className='seat'; let content=`<div>Seat ${i+1}`; if(pub.dealerIndex===i) content+=' <span class="muted">(Dealer)</span>'; if(pub.toActSeat===i) content+=' <strong>▶</strong>'; content+=`</div>`; if(s){ content+=`<div class="seat-name">${s.name}</div><div class="seat-chips">₹${s.chips}</div><div>${s.status||''}</div>`; } else { content+=`<div><button class="sitHere" data-seat="${i}">Sit Here</button></div>`; } div.innerHTML=content; seats.appendChild(div); } document.querySelectorAll('.sitHere').forEach(b=>{ b.onclick=()=>{ const seat=parseInt(b.dataset.seat); const name=$('name').value||'Player'; socket.emit('sit',{roomId,seatIndex:seat,name}); }; }); }$('createBtn').onclick=()=>{ const name=$('name').value||'Host'; socket.emit('createRoom',{name}); };$('joinBtn').onclick=()=>{ const name=$('name').value||'Player'; const input=$('roomInput').value.trim(); if(input.startsWith('http')){ try{ const url=new URL(input); const q=url.searchParams.get('room'); if(q) roomId=q; else roomId=url.pathname.replace('/',''); }catch(e){ roomId=input; } } else { roomId=input||null; } if(!roomId){ alert('Enter room id or paste link'); return; } socket.emit('joinRoom',{roomId,name}); };socket.on('roomCreated',(d)=>{ roomId=d.roomId; $('roomInfo').innerText=`Room: ${roomId} — share link: ${location.origin}/?room=${roomId}`; showLobby(); socket.emit('getRoomState',{roomId}); });socket.on('joined',(d)=>{ roomId=d.roomId; mySeat=d.seatIndex; $('roomInfo').innerText=`Room: ${roomId} — share link: ${location.origin}/?room=${roomId}`; showLobby(); socket.emit('getRoomState',{roomId}); });socket.on('state',(pub)=>{ renderSeating(pub); renderSeatsGrid(pub); $('roomLabel').innerText=`Room: ${roomId||''}`; $('blindsLabel').innerText=`Blinds: ₹${pub.smallBlind}/${pub.bigBlind}`; $('handCountLabel').innerText=`Hands: ${pub.handCount}`; $('pot').innerText=`Pot: ₹${pub.pot||0}`; const anySeated=pub.seats.some(s=>s); if(anySeated) showTable(); else showLobby(); const communityDiv=$('community'); communityDiv.innerHTML=''; (pub.community||[]).forEach(c=>{ const el=document.createElement('div'); el.className='card'; if(c[1]==='h'||c[1]==='d') el.classList.add('red'); el.innerText=prettyCard(c); communityDiv.appendChild(el); }); });socket.on('yourHand',(d)=>{ const cardsDiv=$('yourCards'); cardsDiv.innerHTML=''; (d.cards||[]).forEach(c=>{ const el=document.createElement('div'); el.className='card'; if(c[1]==='h'||c[1]==='d') el.classList.add('red'); el.innerText=prettyCard(c); cardsDiv.appendChild(el); }); $('yourChips').innerText=`You: ₹${d.chips}`; showTable(); });function prettyCard(code){ const map={'T':'10','J':'J','Q':'Q','K':'K','A':'A'}; const r=code[0]; const s=code[1]; const suit=s==='s'?'♠':s==='h'?'♥':s==='d'?'♦':'♣'; return (map[r]||r)+suit; }document.addEventListener('click',(e)=>{ if(e.target&&e.target.id==='startBtn'){ socket.emit('startGame',{roomId}); } if(e.target&&e.target.id==='backBtn'){ socket.emit('leaveSeat',{roomId}); mySeat=null; roomId=null; showLobby(); } });$('foldBtn').onclick=()=>socket.emit('action',{roomId,action:'fold'});$('checkBtn').onclick=()=>socket.emit('action',{roomId,action:'check'});$('callBtn').onclick=()=>socket.emit('action',{roomId,action:'call'});$('raiseBtn').onclick=()=>{ const amt=parseInt($('raiseAmount').value||0); if(!amt||amt<=0){ alert('Enter raise amount'); return; } socket.emit('action',{roomId,action:'raise',amount:amt}); };$('allinBtn').onclick=()=>socket.emit('action',{roomId,action:'allin'});(function(){ const params=new URLSearchParams(window.location.search); const r=params.get('room'); if(r){ $('roomInput').value=r; } })();socket.on('hand_result',(d)=>{ let txt='Hand result:\n'; d.results.forEach(r=>{ txt+=`Pot ₹${r.amount} -> winners: ${r.winners.join(', ')}\n`; }); $('result').innerText=txt; setTimeout(()=>{ $('result').innerText=''; socket.emit('getRoomState',{roomId}); },5000); });socket.on('errorMsg',(m)=>alert(m));socket.on('msg',(m)=>console.log('msg',m));
+const socket = io();
+const roomIdEl = document.getElementById('roomId');
+const playerNameEl = document.getElementById('playerName');
+const playersDiv = document.getElementById('players');
+const yourHandDiv = document.getElementById('yourHand');
+const communityDiv = document.getElementById('communityCards');
+
+document.getElementById('createBtn').onclick = () => {
+  socket.emit('createRoom', roomIdEl.value, playerNameEl.value);
+};
+
+document.getElementById('joinBtn').onclick = () => {
+  socket.emit('joinRoom', roomIdEl.value, playerNameEl.value);
+};
+
+document.getElementById('startBtn').onclick = () => {
+  socket.emit('startGame', roomIdEl.value);
+};
+
+socket.on('updatePlayers', (players) => {
+  playersDiv.innerHTML = players.map(p => `${p.name} (₹${p.chips})`).join('<br>');
+});
+
+socket.on('gameStarted', (data) => {
+  yourHandDiv.innerHTML = data.yourHand.map(c => `<div class="card">${c}</div>`).join('');
+});
+
+socket.on('dealFlop', (cards) => {
+  communityDiv.innerHTML = cards.map(c => `<div class="card">${c}</div>`).join('');
+});
