@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Minimal Poker — ₹ Play</title><link rel="stylesheet" href="style.css"/></head>
+<body>
+<div class="app">
+  <div id="lobby" class="panel">
+    <h2>Minimal Poker (₹)</h2>
+    <label>Your name</label><input id="name" placeholder="Type name (change anytime)"/>
+    <div class="row"><button id="createBtn">Create Room</button><input id="roomInput" placeholder="Room ID (or paste link)"/><button id="joinBtn">Join Room</button></div>
+    <div id="roomInfo" class="muted"></div>
+    <div id="seating" class="seating"></div>
+    <div id="hostControls" class="host-controls"></div>
+  </div>
+
+  <div id="table" class="panel hidden">
+    <div class="topbar"><div id="roomLabel"></div><div id="blindsLabel"></div><div id="handCountLabel"></div></div>
+    <div class="table-area">
+      <div id="seats" class="seats-grid"></div>
+      <div class="center"><div id="community" class="community"></div><div id="pot" class="pot">Pot: ₹0</div></div>
+    </div>
+    <div id="youArea" class="you-area"><div id="yourCards" class="your-cards"></div><div id="yourChips" class="your-chips"></div></div>
+    <div id="controls" class="controls"><div id="turnInfo"></div><div class="actions"><button id="foldBtn">Fold</button><button id="checkBtn">Check</button><button id="callBtn">Call</button><input id="raiseAmount" type="number" placeholder="₹ raise"/><button id="raiseBtn">Raise</button><button id="allinBtn">All-in</button></div></div>
+    <div id="result" class="result"></div>
+    <div class="back"><button id="backBtn">Leave Table</button></div>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script><script src="client.js"></script></body></html>
